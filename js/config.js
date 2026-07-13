@@ -80,3 +80,30 @@ export const CONFIG = {
     oaInterestRate: 0.025
   }
 };
+
+export const PRESETS = {
+  north: {
+    prices: { bto2Room: 160000, resale3Room: 340000, resale4Room: 500000, privateCondo: 900000 },
+    rental: { rent3rCommon: 850, rent4rCommon: 1700, rentCondoWhole: 2500 }
+  },
+  northeast: {
+    prices: { bto2Room: 180000, resale3Room: 370000, resale4Room: 540000, privateCondo: 960000 },
+    rental: { rent3rCommon: 950, rent4rCommon: 1900, rentCondoWhole: 2700 }
+  },
+  east: {
+    prices: { bto2Room: 260000, resale3Room: 400000, resale4Room: 600000, privateCondo: 1100000 },
+    rental: { rent3rCommon: 1100, rent4rCommon: 2200, rentCondoWhole: 3100 }
+  },
+  west: {
+    prices: { bto2Room: 200000, resale3Room: 380000, resale4Room: 560000, privateCondo: 1000000 },
+    rental: { rent3rCommon: 1000, rent4rCommon: 2000, rentCondoWhole: 2900 }
+  },
+  central: {
+    prices: { bto2Room: 380000, resale3Room: 480000, resale4Room: 800000, privateCondo: 1400000 },
+    rental: { rent3rCommon: 1300, rent4rCommon: 2600, rentCondoWhole: 3800 }
+  },
+  cbd: {
+    prices: { bto2Room: 450000, resale3Room: 580000, resale4Room: 950000, privateCondo: 1750000 },
+    rental: { rent3rCommon: 1550, rent4rCommon: 3100, rentCondoWhole: 4500 }
+  }
+};

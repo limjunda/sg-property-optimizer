@@ -12,7 +12,7 @@
 
 import { CONFIG } from './config.js';
 import { calculateSinglesGrants } from './engines/grants.js';
-import { checkMSR, checkTDSR } from './engines/debt.js';
+import { checkMSR, checkTDSR, getMaxLoanFromMSR, getMaxLoanFromTDSR } from './engines/debt.js';
 import { calculateBSD } from './engines/bsd.js';
 import { calculateMonthlyRepayment, getOutstandingBalance } from './engines/mortgage.js';
 import { projectPropertyValue, estimateAnnualValue, calculatePropertyTax } from './engines/property.js';
@@ -79,25 +79,33 @@ function simulateBTO(age, income, cpfOA, cash, monthlySavings, cfg, years) {
     // ── Loan & Affordability ──
     const bsd = calculateBSD(price);
     const totalGrants = grants.totalGrantsAvailable;
-    const effectivePrice = price - totalGrants;
-    const loanAmount = effectivePrice * cfg.loan.maxLTV;
-    const downpayment = effectivePrice - loanAmount;
+    
+    // Max loan: minimum of 75% LTV limit and MSR limit
+    const maxLoanLTV = price * cfg.loan.maxLTV;
+    const maxLoanMSR = getMaxLoanFromMSR(income, cfg.rates.hdbLoanRate, cfg.loan.defaultTenureYears);
+    let loanAmount = Math.min(maxLoanLTV, maxLoanMSR);
+
+    let downpayment, cpfUsed, cashRequired;
+    const dpTotal = price - loanAmount; // Total downpayment before grants
     const renoFee = cfg.renovation.renoBto2Room;
 
-    // BTO: 25% down can be fully CPF
-    const totalUpfront = downpayment + bsd + renoFee;
-    const cpfUsed = Math.min(cpfOA, downpayment);
-    const cashRequired = totalUpfront - cpfUsed;
+    if (totalGrants > dpTotal) {
+        // Excess grants reduce the loan principal
+        loanAmount = price - totalGrants;
+        downpayment = totalGrants;
+        cpfUsed = 0;
+        cashRequired = bsd; // Renovation is paid at Year 4
+    } else {
+        downpayment = dpTotal;
+        cpfUsed = Math.min(cpfOA, dpTotal - totalGrants);
+        cashRequired = (dpTotal - totalGrants - cpfUsed) + bsd; // Renovation is paid at Year 4
+    }
 
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, 'bto', age);
+        return createUnaffordableResult(pathName, cashRequired, cash, years, 'bto', age);
     }
 
-    // ── MSR Check ──
     const monthlyMortgage = calculateMonthlyRepayment(loanAmount, cfg.rates.hdbLoanRate, cfg.loan.defaultTenureYears);
-    if (!checkMSR(income, monthlyMortgage)) {
-        warnings.push('Monthly mortgage exceeds 30% MSR limit. Loan quantum may need reduction.');
-    }
 
     // ── Remaining Liquidity ──
     let remainingCash = cash - cashRequired;
@@ -132,6 +140,11 @@ function simulateBTO(age, income, cpfOA, cash, monthlySavings, cfg, years) {
             const monthlyReturn = cfg.rates.equityReturn / 12;
             const cpfInterestRateMonthly = cfg.cpf.oaInterestRate / 12;
 
+            if (t === btoWait) {
+                // Key collection! Renovation cost is paid now.
+                equityPortfolio -= renoFee;
+            }
+
             for (let m = 0; m < 12; m++) {
                 // Add monthly interest to CPF OA
                 cpfOABalance *= (1 + cpfInterestRateMonthly);
@@ -152,14 +165,25 @@ function simulateBTO(age, income, cpfOA, cash, monthlySavings, cfg, years) {
                     mortgagePaidThisYear += monthlyMortgage;
                 }
 
-                const otherMonthlyCosts = 0;
-                const monthlyEquityContrib = Math.max(0, monthlySavings - cashMortgageShortfall - otherMonthlyCosts);
+                // Property tax and SCC after completion
+                let otherMonthlyCosts = 0;
+                if (isMortgageActive) {
+                    const av = estimateAnnualValue(propertyValue);
+                    const annualPropertyTax = calculatePropertyTax(av, true);
+                    otherMonthlyCosts = cfg.runningCosts.hdbSCC + (annualPropertyTax / 12);
+                }
 
+                const monthlyEquityContrib = monthlySavings - cashMortgageShortfall - otherMonthlyCosts;
                 equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
             }
         }
 
         const netWorth = propertyValue + equityPortfolio + cpfOABalance - loanBalance;
+
+        // Check for bankruptcy (cash reserves depleted)
+        if (equityPortfolio < 0) {
+            return createUnaffordableResult(pathName, cashRequired, cash, years, 'bto', age, 'Cash reserves depleted during projection period due to monthly cash flow deficit.');
+        }
 
         yearlyData.push({
             year: t,
@@ -185,7 +209,7 @@ function simulateBTO(age, income, cpfOA, cash, monthlySavings, cfg, years) {
         warnings,
         grants: grants.breakdown,
         totalGrants: totalGrants,
-        upfrontCosts: { downpayment: Math.round(downpayment), bsd, renovation: renoFee, total: Math.round(totalUpfront) },
+        upfrontCosts: { downpayment: Math.round(downpayment), bsd, renovation: renoFee, total: Math.round(cashRequired + cpfUsed) },
         loanDetails: { amount: Math.round(loanAmount), rate: cfg.rates.hdbLoanRate, monthlyPayment: Math.round(monthlyMortgage), type: 'HDB Concessionary' },
         summary: {
             finalNetWorth: final.netWorth,
@@ -209,43 +233,51 @@ function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, year
     const grants = calculateSinglesGrants(income, 'Resale', '2-4 room');
     const totalGrants = grants.totalGrantsAvailable;
 
-    // ── Loan & Affordability ──
-    const bsd = calculateBSD(price);
-    const effectivePrice = price - totalGrants;
-    const loanAmount = effectivePrice * cfg.loan.maxLTV;
-    const downpayment = effectivePrice - loanAmount;
-    const renoFee = cfg.renovation.reno3Room;
-
     // Determine loan type: HDB concessionary if income <= 7000, else bank
     const isHDBLoan = income <= cfg.income.grantIncomeCeiling;
     const loanRate = isHDBLoan ? cfg.rates.hdbLoanRate : cfg.rates.bankLoanRate;
 
-    let cashRequired, cpfUsed;
+    // ── Loan & Affordability ──
+    const bsd = calculateBSD(price);
+    const maxLoanLTV = price * cfg.loan.maxLTV;
+    const maxLoanMSR = getMaxLoanFromMSR(income, loanRate, cfg.loan.defaultTenureYears);
+    let loanAmount = Math.min(maxLoanLTV, maxLoanMSR);
+
+    let downpayment, cpfUsed, cashRequired;
+    const dpTotal = price - loanAmount;
+    const renoFee = cfg.renovation.reno3Room;
+
     if (isHDBLoan) {
-        // HDB loan: 25% down can be all CPF
-        cpfUsed = Math.min(cpfOA, downpayment);
-        cashRequired = downpayment - cpfUsed + bsd + renoFee;
+        if (totalGrants > dpTotal) {
+            loanAmount = price - totalGrants;
+            downpayment = totalGrants;
+            cpfUsed = 0;
+            cashRequired = bsd + renoFee;
+        } else {
+            downpayment = dpTotal;
+            cpfUsed = Math.min(cpfOA, dpTotal - totalGrants);
+            cashRequired = (dpTotal - totalGrants - cpfUsed) + bsd + renoFee;
+        }
     } else {
-        // Bank loan: 5% must be cash, remaining 20% can be CPF
-        const cashDown = effectivePrice * cfg.loan.bankCashDownMin;
-        const cpfDown = downpayment - cashDown;
-        cpfUsed = Math.min(cpfOA, cpfDown);
-        cashRequired = cashDown + (cpfDown - cpfUsed) + bsd + renoFee;
+        const minCashDown = price * cfg.loan.bankCashDownMin;
+        const cpfDown = dpTotal - minCashDown;
+        if (totalGrants > cpfDown) {
+            loanAmount = price * 0.95 - totalGrants;
+            downpayment = price - loanAmount;
+            cpfUsed = 0;
+            cashRequired = minCashDown + bsd + renoFee;
+        } else {
+            downpayment = dpTotal;
+            cpfUsed = Math.min(cpfOA, cpfDown - totalGrants);
+            cashRequired = minCashDown + (cpfDown - totalGrants - cpfUsed) + bsd + renoFee;
+        }
     }
 
-    const totalUpfront = downpayment + bsd + renoFee;
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, '3room', age);
+        return createUnaffordableResult(pathName, cashRequired, cash, years, '3room', age);
     }
 
-    // ── Debt Servicing Check ──
     const monthlyMortgage = calculateMonthlyRepayment(loanAmount, loanRate, cfg.loan.defaultTenureYears);
-    const passesDebtCheck = isHDBLoan
-        ? checkMSR(income, monthlyMortgage)
-        : checkTDSR(income, monthlyMortgage);
-    if (!passesDebtCheck) {
-        warnings.push(`Monthly mortgage exceeds ${isHDBLoan ? '30% MSR' : '55% TDSR'} limit.`);
-    }
 
     // ── Remaining Liquidity ──
     let remainingCash = cash - cashRequired;
@@ -255,7 +287,6 @@ function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, year
     let equityPortfolio = remainingCash;
     let cpfOABalance = cpfOA - cpfUsed;
     let cumulativeRental = 0;
-    const mop = cfg.timeline.standardMOP;
     const monthlyRent = cfg.rental.rent3rCommon;
 
     // Monthly CPF OA contribution
@@ -271,8 +302,8 @@ function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, year
             mortgagePaidThisYear = 0;
             annualRental = 0;
         } else {
-            // Rental income during MOP (immediate subletting of 1 room)
-            const rentalIncome = (t >= 1 && t <= mop) ? monthlyRent : (t > mop ? monthlyRent : 0);
+            // Rental income: 1 room from Year 1 onwards
+            const rentalIncome = t >= 1 ? monthlyRent : 0;
             annualRental = rentalIncome * 12;
             cumulativeRental += annualRental;
 
@@ -302,8 +333,8 @@ function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, year
                 }
                 mortgagePaidThisYear += monthlyMortgage;
 
-                // Monthly contribution to equity
-                const monthlyEquityContrib = Math.max(0, monthlySavings + rentalIncome - cashMortgageShortfall - otherMonthlyCosts);
+                // Monthly contribution to equity (can be negative, draining cash)
+                const monthlyEquityContrib = monthlySavings + rentalIncome - cashMortgageShortfall - otherMonthlyCosts;
 
                 // Grow equity portfolio
                 equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
@@ -311,6 +342,11 @@ function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, year
         }
 
         const netWorth = propertyValue + equityPortfolio + cpfOABalance - loanBalance;
+
+        // Check for bankruptcy (cash reserves depleted)
+        if (equityPortfolio < 0) {
+            return createUnaffordableResult(pathName, cashRequired, cash, years, '3room', age, 'Cash reserves depleted during projection period due to monthly cash flow deficit.');
+        }
 
         yearlyData.push({
             year: t,
@@ -336,7 +372,7 @@ function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, year
         warnings,
         grants: grants.breakdown,
         totalGrants,
-        upfrontCosts: { downpayment: Math.round(downpayment), bsd, renovation: renoFee, total: Math.round(totalUpfront) },
+        upfrontCosts: { downpayment: Math.round(downpayment), bsd, renovation: renoFee, total: Math.round(cashRequired + cpfUsed) },
         loanDetails: { amount: Math.round(loanAmount), rate: loanRate, monthlyPayment: Math.round(monthlyMortgage), type: isHDBLoan ? 'HDB Concessionary' : 'Bank Loan' },
         summary: {
             finalNetWorth: final.netWorth,
@@ -360,40 +396,51 @@ function simulateResale4Room(age, income, cpfOA, cash, monthlySavings, cfg, year
     const grants = calculateSinglesGrants(income, 'Resale', '2-4 room');
     const totalGrants = grants.totalGrantsAvailable;
 
-    // ── Loan & Affordability ──
-    const bsd = calculateBSD(price);
-    const effectivePrice = price - totalGrants;
-    const loanAmount = effectivePrice * cfg.loan.maxLTV;
-    const downpayment = effectivePrice - loanAmount;
-    const renoFee = cfg.renovation.reno4Room;
-
+    // Determine loan type: HDB concessionary if income <= 7000, else bank
     const isHDBLoan = income <= cfg.income.grantIncomeCeiling;
     const loanRate = isHDBLoan ? cfg.rates.hdbLoanRate : cfg.rates.bankLoanRate;
 
-    let cashRequired, cpfUsed;
+    // ── Loan & Affordability ──
+    const bsd = calculateBSD(price);
+    const maxLoanLTV = price * cfg.loan.maxLTV;
+    const maxLoanMSR = getMaxLoanFromMSR(income, loanRate, cfg.loan.defaultTenureYears);
+    let loanAmount = Math.min(maxLoanLTV, maxLoanMSR);
+
+    let downpayment, cpfUsed, cashRequired;
+    const dpTotal = price - loanAmount;
+    const renoFee = cfg.renovation.reno4Room;
+
     if (isHDBLoan) {
-        cpfUsed = Math.min(cpfOA, downpayment);
-        cashRequired = downpayment - cpfUsed + bsd + renoFee;
+        if (totalGrants > dpTotal) {
+            loanAmount = price - totalGrants;
+            downpayment = totalGrants;
+            cpfUsed = 0;
+            cashRequired = bsd + renoFee;
+        } else {
+            downpayment = dpTotal;
+            cpfUsed = Math.min(cpfOA, dpTotal - totalGrants);
+            cashRequired = (dpTotal - totalGrants - cpfUsed) + bsd + renoFee;
+        }
     } else {
-        const cashDown = effectivePrice * cfg.loan.bankCashDownMin;
-        const cpfDown = downpayment - cashDown;
-        cpfUsed = Math.min(cpfOA, cpfDown);
-        cashRequired = cashDown + (cpfDown - cpfUsed) + bsd + renoFee;
+        const minCashDown = price * cfg.loan.bankCashDownMin;
+        const cpfDown = dpTotal - minCashDown;
+        if (totalGrants > cpfDown) {
+            loanAmount = price * 0.95 - totalGrants;
+            downpayment = price - loanAmount;
+            cpfUsed = 0;
+            cashRequired = minCashDown + bsd + renoFee;
+        } else {
+            downpayment = dpTotal;
+            cpfUsed = Math.min(cpfOA, cpfDown - totalGrants);
+            cashRequired = minCashDown + (cpfDown - totalGrants - cpfUsed) + bsd + renoFee;
+        }
     }
 
-    const totalUpfront = downpayment + bsd + renoFee;
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, '4room', age);
+        return createUnaffordableResult(pathName, cashRequired, cash, years, '4room', age);
     }
 
-    // ── Debt Servicing Check ──
     const monthlyMortgage = calculateMonthlyRepayment(loanAmount, loanRate, cfg.loan.defaultTenureYears);
-    const passesDebtCheck = isHDBLoan
-        ? checkMSR(income, monthlyMortgage)
-        : checkTDSR(income, monthlyMortgage);
-    if (!passesDebtCheck) {
-        warnings.push(`Monthly mortgage exceeds ${isHDBLoan ? '30% MSR' : '55% TDSR'} limit.`);
-    }
 
     // ── Remaining Liquidity ──
     let remainingCash = cash - cashRequired;
@@ -403,7 +450,6 @@ function simulateResale4Room(age, income, cpfOA, cash, monthlySavings, cfg, year
     let equityPortfolio = remainingCash;
     let cpfOABalance = cpfOA - cpfUsed;
     let cumulativeRental = 0;
-    const mop = cfg.timeline.standardMOP;
     const monthlyRent = cfg.rental.rent4rCommon; // 2 rooms
 
     // Monthly CPF OA contribution
@@ -449,8 +495,8 @@ function simulateResale4Room(age, income, cpfOA, cash, monthlySavings, cfg, year
                 }
                 mortgagePaidThisYear += monthlyMortgage;
 
-                // Monthly contribution to equity
-                const monthlyEquityContrib = Math.max(0, monthlySavings + rentalIncome - cashMortgageShortfall - otherMonthlyCosts);
+                // Monthly contribution to equity (can be negative)
+                const monthlyEquityContrib = monthlySavings + rentalIncome - cashMortgageShortfall - otherMonthlyCosts;
 
                 // Grow equity portfolio
                 equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
@@ -458,6 +504,11 @@ function simulateResale4Room(age, income, cpfOA, cash, monthlySavings, cfg, year
         }
 
         const netWorth = propertyValue + equityPortfolio + cpfOABalance - loanBalance;
+
+        // Check for bankruptcy (cash reserves depleted)
+        if (equityPortfolio < 0) {
+            return createUnaffordableResult(pathName, cashRequired, cash, years, '4room', age, 'Cash reserves depleted during projection period due to monthly cash flow deficit.');
+        }
 
         yearlyData.push({
             year: t,
@@ -483,7 +534,7 @@ function simulateResale4Room(age, income, cpfOA, cash, monthlySavings, cfg, year
         warnings,
         grants: grants.breakdown,
         totalGrants,
-        upfrontCosts: { downpayment: Math.round(downpayment), bsd, renovation: renoFee, total: Math.round(totalUpfront) },
+        upfrontCosts: { downpayment: Math.round(downpayment), bsd, renovation: renoFee, total: Math.round(cashRequired + cpfUsed) },
         loanDetails: { amount: Math.round(loanAmount), rate: loanRate, monthlyPayment: Math.round(monthlyMortgage), type: isHDBLoan ? 'HDB Concessionary' : 'Bank Loan' },
         summary: {
             finalNetWorth: final.netWorth,
@@ -508,27 +559,25 @@ function simulatePrivateCondo(age, income, cpfOA, cash, monthlySavings, cfg, yea
 
     // ── Loan & Affordability ──
     const bsd = calculateBSD(price);
-    const loanAmount = price * cfg.loan.maxLTV;
-    const downpayment = price - loanAmount;
+    const maxLoanLTV = price * cfg.loan.maxLTV;
+    const maxLoanTDSR = getMaxLoanFromTDSR(income, cfg.rates.bankLoanRate, cfg.loan.defaultTenureYears);
+    let loanAmount = Math.min(maxLoanLTV, maxLoanTDSR);
+
+    const dpTotal = price - loanAmount;
     const renoFee = cfg.renovation.renoCondo;
 
     // Bank loan: 5% must be cash, 20% can be CPF/cash
-    const cashDown = price * cfg.loan.bankCashDownMin;
-    const cpfDown = downpayment - cashDown;
+    const minCashDown = price * cfg.loan.bankCashDownMin;
+    const cpfDown = dpTotal - minCashDown;
     const cpfUsed = Math.min(cpfOA, cpfDown);
-    const cashRequired = cashDown + (cpfDown - cpfUsed) + bsd + renoFee;
+    const cashRequired = minCashDown + (cpfDown - cpfUsed) + bsd + renoFee;
 
-    const totalUpfront = downpayment + bsd + renoFee;
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, 'condo', age);
+        return createUnaffordableResult(pathName, cashRequired, cash, years, 'condo', age);
     }
 
-    // ── TDSR Check ──
     const loanRate = cfg.rates.bankLoanRate;
     const monthlyMortgage = calculateMonthlyRepayment(loanAmount, loanRate, cfg.loan.defaultTenureYears);
-    if (!checkTDSR(income, monthlyMortgage)) {
-        warnings.push('Monthly mortgage exceeds 55% TDSR limit.');
-    }
 
     // ── Remaining Liquidity ──
     let remainingCash = cash - cashRequired;
@@ -575,8 +624,8 @@ function simulatePrivateCondo(age, income, cpfOA, cash, monthlySavings, cfg, yea
                 }
                 mortgagePaidThisYear += monthlyMortgage;
 
-                // Monthly contribution to equity
-                const monthlyEquityContrib = Math.max(0, monthlySavings - cashMortgageShortfall - otherMonthlyCosts);
+                // Monthly contribution to equity (can be negative)
+                const monthlyEquityContrib = monthlySavings - cashMortgageShortfall - otherMonthlyCosts;
 
                 // Grow equity portfolio
                 equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
@@ -584,6 +633,11 @@ function simulatePrivateCondo(age, income, cpfOA, cash, monthlySavings, cfg, yea
         }
 
         const netWorth = propertyValue + equityPortfolio + cpfOABalance - loanBalance;
+
+        // Check for bankruptcy (cash reserves depleted)
+        if (equityPortfolio < 0) {
+            return createUnaffordableResult(pathName, cashRequired, cash, years, 'condo', age, 'Cash reserves depleted during projection period due to monthly cash flow deficit.');
+        }
 
         yearlyData.push({
             year: t,
@@ -609,7 +663,7 @@ function simulatePrivateCondo(age, income, cpfOA, cash, monthlySavings, cfg, yea
         warnings,
         grants: { singlesGrant: 0, ehgGrant: 0, proximityGrant: 0 },
         totalGrants: 0,
-        upfrontCosts: { downpayment: Math.round(downpayment), bsd, renovation: renoFee, total: Math.round(totalUpfront) },
+        upfrontCosts: { downpayment: Math.round(downpayment), bsd, renovation: renoFee, total: Math.round(cashRequired + cpfUsed) },
         loanDetails: { amount: Math.round(loanAmount), rate: loanRate, monthlyPayment: Math.round(monthlyMortgage), type: 'Bank Loan' },
         summary: {
             finalNetWorth: final.netWorth,
@@ -657,7 +711,8 @@ function createIneligibleResult(pathName, errorMsg, years, startAge = 35) {
 // Helper: Create result for unaffordable paths
 // ─────────────────────────────────────────────────
 
-function createUnaffordableResult(pathName, requiredAmount, availableFunds, years, pathId = 'bto', startAge = 35) {
+function createUnaffordableResult(pathName, requiredAmount, availableFunds, years, pathId = 'bto', startAge = 35, customWarning = null) {
+    const warningMsg = customWarning || `Insufficient upfront capital. Required: S$${Math.round(requiredAmount).toLocaleString()}, Available: S$${Math.round(availableFunds).toLocaleString()}`;
     return {
         pathName,
         pathId,
@@ -669,7 +724,7 @@ function createUnaffordableResult(pathName, requiredAmount, availableFunds, year
             cpfOABalance: 0,
             netWorth: 0, rentalIncome: 0, mortgagePayment: 0, cumulativeRental: 0
         })),
-        warnings: [`Insufficient upfront capital. Required: S$${Math.round(requiredAmount).toLocaleString()}, Available: S$${Math.round(availableFunds).toLocaleString()}`],
+        warnings: [warningMsg],
         grants: { singlesGrant: 0, ehgGrant: 0, proximityGrant: 0 },
         totalGrants: 0,
         upfrontCosts: { downpayment: 0, bsd: 0, renovation: 0, total: Math.round(requiredAmount) },

@@ -245,7 +245,7 @@
             display: flex;
             align-items: flex-start;
             gap: var(--space-2);
-            max-width: 240px;
+            max-width: 100%;
         }
         .warning-badge__icon {
             flex-shrink: 0;
@@ -289,6 +289,19 @@
                         Enter your <strong>4 core parameters</strong> to instantly project your
                         10-year net worth across all eligible property paths.
                     </p>
+
+                    <!-- District Price Preset -->
+                    <div class="input-group">
+                        <label class="input-label" for="select-preset">District Price Preset</label>
+                        <select id="select-preset" class="input-field" style="width: 100%; border-color: var(--info);">
+                            <option value="north" selected>North (e.g. Woodlands, Sembawang)</option>
+                            <option value="northeast">Northeast (e.g. Punggol, Sengkang)</option>
+                            <option value="east">East (e.g. Tampines, Pasir Ris)</option>
+                            <option value="west">West (e.g. Jurong, Bukit Batok)</option>
+                            <option value="central">Central (e.g. Serangoon, Queenstown)</option>
+                            <option value="cbd">CBD / Premium City (e.g. Orchard, Downtown)</option>
+                        </select>
+                    </div>
 
                     <!-- Age -->
                     <div class="input-group">
@@ -426,6 +439,12 @@
                     <p class="chart-subtitle">10-year trajectory across all 4 property acquisition strategies</p>
                     <div class="chart-warnings" id="chart-warnings"></div>
                     <div id="net-worth-chart"></div>
+                </div>
+
+                <div class="chart-container glass-card" style="margin-top: var(--space-6);">
+                    <h2 class="chart-title">Capital Leverage & Rental Offset</h2>
+                    <p class="chart-subtitle">Upfront Capital Sunk (Yr 0) vs Cumulative Tenant Rent Collected (Yr 10)</p>
+                    <div id="leverage-chart"></div>
                 </div>
 
                 <!-- Metric Cards -->

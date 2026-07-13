@@ -8,10 +8,12 @@
 import { initInputs, getInputValues } from './ui/inputs.js';
 import { initDrawer, collectOverrides } from './ui/drawer.js';
 import { initChart, updateChart } from './ui/chart.js';
+import { initLeverageChart, updateLeverageChart } from './ui/leverage-chart.js';
 import { updateCards } from './ui/cards.js';
 import { runSimulation } from './simulator.js';
 import { debounce } from './utils.js';
 import { initModal, showModal } from './ui/modal.js';
+import { PRESETS } from './config.js';
 
 /** 
  * Application state
@@ -27,12 +29,54 @@ function init() {
     initInputs(handleInputChange);
     initDrawer(handleOverrideChange);
     initChart('net-worth-chart');
+    initLeverageChart('leverage-chart');
     initModal();
 
     // Wire up the calculate button
     const calcBtn = document.getElementById('btn-calculate');
     if (calcBtn) {
         calcBtn.addEventListener('click', runCalculation);
+    }
+
+    // Listen for preset change events
+    const selectPreset = document.getElementById('select-preset');
+    if (selectPreset) {
+        selectPreset.addEventListener('change', (e) => {
+            const presetVal = e.target.value;
+            if (presetVal === 'custom') return;
+
+            const presetData = PRESETS[presetVal];
+            if (presetData) {
+                for (const [category, valObj] of Object.entries(presetData)) {
+                    for (const [key, val] of Object.entries(valObj)) {
+                        const inputId = `adv-${category}.${key}`;
+                        const inputEl = document.getElementById(inputId);
+                        if (inputEl) {
+                            inputEl.value = val;
+                        }
+                    }
+                }
+                // Trigger the override changes and recalculate
+                currentOverrides = collectOverrides();
+                runCalculation();
+            }
+        });
+
+        // Initialize advanced drawer values with the default selected preset on load
+        const initialPreset = selectPreset.value;
+        const presetData = PRESETS[initialPreset];
+        if (presetData) {
+            for (const [category, valObj] of Object.entries(presetData)) {
+                for (const [key, val] of Object.entries(valObj)) {
+                    const inputId = `adv-${category}.${key}`;
+                    const inputEl = document.getElementById(inputId);
+                    if (inputEl) {
+                        inputEl.value = val;
+                    }
+                }
+            }
+            currentOverrides = collectOverrides();
+        }
     }
 
     // Run initial calculation with defaults
@@ -58,6 +102,20 @@ function handleInputChange(values) {
  */
 function handleOverrideChange(overrides) {
     currentOverrides = overrides;
+
+    // Change select-preset to "Custom" option
+    const selectPreset = document.getElementById('select-preset');
+    if (selectPreset) {
+        let customOption = selectPreset.querySelector('option[value="custom"]');
+        if (!customOption) {
+            customOption = document.createElement('option');
+            customOption.value = 'custom';
+            customOption.textContent = 'Custom (Overridden)';
+            selectPreset.appendChild(customOption);
+        }
+        selectPreset.value = 'custom';
+    }
+
     runCalculation();
 }
 
@@ -81,6 +139,7 @@ function runCalculation() {
 
         // Update visualizations
         updateChart(currentResults, inputs.age);
+        updateLeverageChart(currentResults);
         updateCards(currentResults);
 
         // Update path summary cards below chart
