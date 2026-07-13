@@ -123,15 +123,6 @@ export function updateChart(results, startAge = 35) {
                             fillColor: '#f5a623',
                             strokeColor: '#fff',
                             strokeWidth: 2
-                        },
-                        label: {
-                            text: formatCompact(crossoverValue),
-                            style: {
-                                color: '#f5a623',
-                                background: 'transparent',
-                                fontSize: '10px'
-                            },
-                            offsetY: -15
                         }
                     });
                 }

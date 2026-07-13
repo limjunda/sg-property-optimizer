@@ -32,12 +32,6 @@ function init() {
     initLeverageChart('leverage-chart');
     initModal();
 
-    // Wire up the calculate button
-    const calcBtn = document.getElementById('btn-calculate');
-    if (calcBtn) {
-        calcBtn.addEventListener('click', runCalculation);
-    }
-
     // Listen for preset change events
     const selectPreset = document.getElementById('select-preset');
     if (selectPreset) {
