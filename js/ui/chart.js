@@ -193,6 +193,9 @@ function buildChartOptions(initialSeries) {
             PATH_COLORS['4room'].main,
             PATH_COLORS.condo.main
         ],
+        dataLabels: {
+            enabled: false
+        },
         stroke: {
             curve: 'smooth',
             width: 4

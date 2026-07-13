@@ -663,7 +663,7 @@ function simulatePrivateCondo(age, income, cpfOA, cash, monthlySavings, cfg, yea
         warnings,
         grants: { singlesGrant: 0, ehgGrant: 0, proximityGrant: 0 },
         totalGrants: 0,
-        upfrontCosts: { downpayment: Math.round(downpayment), bsd, renovation: renoFee, total: Math.round(cashRequired + cpfUsed) },
+        upfrontCosts: { downpayment: Math.round(dpTotal), bsd, renovation: renoFee, total: Math.round(cashRequired + cpfUsed) },
         loanDetails: { amount: Math.round(loanAmount), rate: loanRate, monthlyPayment: Math.round(monthlyMortgage), type: 'Bank Loan' },
         summary: {
             finalNetWorth: final.netWorth,
