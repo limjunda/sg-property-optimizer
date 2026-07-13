@@ -28,17 +28,17 @@ import { projectEquityPortfolio } from './engines/equity.js';
  */
 export function runSimulation(userInputs, overrides = {}) {
     const cfg = mergeConfig(overrides);
-    const { income, cpfOA, cashLiquidity } = userInputs;
+    const { age, income, cpfOA, cashLiquidity } = userInputs;
     const years = cfg.timeline.projectionYears;
 
     // Monthly savings available for equity investment
     const monthlySavings = income * cfg.savingsRate;
 
     const results = [
-        simulateBTO(income, cpfOA, cashLiquidity, monthlySavings, cfg, years),
-        simulateResale3Room(income, cpfOA, cashLiquidity, monthlySavings, cfg, years),
-        simulateResale4Room(income, cpfOA, cashLiquidity, monthlySavings, cfg, years),
-        simulatePrivateCondo(income, cpfOA, cashLiquidity, monthlySavings, cfg, years),
+        simulateBTO(age, income, cpfOA, cashLiquidity, monthlySavings, cfg, years),
+        simulateResale3Room(age, income, cpfOA, cashLiquidity, monthlySavings, cfg, years),
+        simulateResale4Room(age, income, cpfOA, cashLiquidity, monthlySavings, cfg, years),
+        simulatePrivateCondo(age, income, cpfOA, cashLiquidity, monthlySavings, cfg, years),
     ];
 
     return results;
@@ -65,7 +65,7 @@ function mergeConfig(overrides) {
 // PATH 1: 2-Room Flexi BTO + Equity Compounding
 // ─────────────────────────────────────────────────
 
-function simulateBTO(income, cpfOA, cash, monthlySavings, cfg, years) {
+function simulateBTO(age, income, cpfOA, cash, monthlySavings, cfg, years) {
     const pathName = '2-Room Flexi BTO';
     const price = cfg.prices.bto2Room;
     const warnings = [];
@@ -73,7 +73,7 @@ function simulateBTO(income, cpfOA, cash, monthlySavings, cfg, years) {
     // ── Eligibility ──
     const grants = calculateSinglesGrants(income, 'BTO', '2-4 room');
     if (!grants.isEligibleForProperty) {
-        return createIneligibleResult(pathName, grants.errorMsg, years);
+        return createIneligibleResult(pathName, grants.errorMsg, years, age);
     }
 
     // ── Loan & Affordability ──
@@ -90,7 +90,7 @@ function simulateBTO(income, cpfOA, cash, monthlySavings, cfg, years) {
     const cashRequired = totalUpfront - cpfUsed;
 
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years);
+        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, 'bto', age);
     }
 
     // ── MSR Check ──
@@ -163,7 +163,7 @@ function simulateBTO(income, cpfOA, cash, monthlySavings, cfg, years) {
 
         yearlyData.push({
             year: t,
-            age: 35 + t,
+            age: age + t,
             propertyValue: Math.round(propertyValue),
             loanBalance: Math.round(Math.max(0, loanBalance)),
             equityPortfolio: Math.round(equityPortfolio),
@@ -200,7 +200,7 @@ function simulateBTO(income, cpfOA, cash, monthlySavings, cfg, years) {
 // PATH 2: 3-Room Resale HDB + 1 Room Rental
 // ─────────────────────────────────────────────────
 
-function simulateResale3Room(income, cpfOA, cash, monthlySavings, cfg, years) {
+function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, years) {
     const pathName = '3-Room Resale HDB';
     const price = cfg.prices.resale3Room;
     const warnings = [];
@@ -235,7 +235,7 @@ function simulateResale3Room(income, cpfOA, cash, monthlySavings, cfg, years) {
 
     const totalUpfront = downpayment + bsd + renoFee;
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, '3room');
+        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, '3room', age);
     }
 
     // ── Debt Servicing Check ──
@@ -314,7 +314,7 @@ function simulateResale3Room(income, cpfOA, cash, monthlySavings, cfg, years) {
 
         yearlyData.push({
             year: t,
-            age: 35 + t,
+            age: age + t,
             propertyValue: Math.round(propertyValue),
             loanBalance: Math.round(Math.max(0, loanBalance)),
             equityPortfolio: Math.round(equityPortfolio),
@@ -351,7 +351,7 @@ function simulateResale3Room(income, cpfOA, cash, monthlySavings, cfg, years) {
 // PATH 3: 4-Room Resale HDB + 2 Rooms Rental
 // ─────────────────────────────────────────────────
 
-function simulateResale4Room(income, cpfOA, cash, monthlySavings, cfg, years) {
+function simulateResale4Room(age, income, cpfOA, cash, monthlySavings, cfg, years) {
     const pathName = '4-Room Resale HDB';
     const price = cfg.prices.resale4Room;
     const warnings = [];
@@ -383,7 +383,7 @@ function simulateResale4Room(income, cpfOA, cash, monthlySavings, cfg, years) {
 
     const totalUpfront = downpayment + bsd + renoFee;
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, '4room');
+        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, '4room', age);
     }
 
     // ── Debt Servicing Check ──
@@ -461,7 +461,7 @@ function simulateResale4Room(income, cpfOA, cash, monthlySavings, cfg, years) {
 
         yearlyData.push({
             year: t,
-            age: 35 + t,
+            age: age + t,
             propertyValue: Math.round(propertyValue),
             loanBalance: Math.round(Math.max(0, loanBalance)),
             equityPortfolio: Math.round(equityPortfolio),
@@ -498,7 +498,7 @@ function simulateResale4Room(income, cpfOA, cash, monthlySavings, cfg, years) {
 // PATH 4: Private Condo (Owner-Occupied)
 // ─────────────────────────────────────────────────
 
-function simulatePrivateCondo(income, cpfOA, cash, monthlySavings, cfg, years) {
+function simulatePrivateCondo(age, income, cpfOA, cash, monthlySavings, cfg, years) {
     const pathName = 'Private Condo';
     const price = cfg.prices.privateCondo;
     const warnings = [];
@@ -520,7 +520,7 @@ function simulatePrivateCondo(income, cpfOA, cash, monthlySavings, cfg, years) {
 
     const totalUpfront = downpayment + bsd + renoFee;
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, 'condo');
+        return createUnaffordableResult(pathName, totalUpfront, cash + cpfOA, years, 'condo', age);
     }
 
     // ── TDSR Check ──
@@ -587,7 +587,7 @@ function simulatePrivateCondo(income, cpfOA, cash, monthlySavings, cfg, years) {
 
         yearlyData.push({
             year: t,
-            age: 35 + t,
+            age: age + t,
             propertyValue: Math.round(propertyValue),
             loanBalance: Math.round(Math.max(0, loanBalance)),
             equityPortfolio: Math.round(equityPortfolio),
@@ -624,7 +624,7 @@ function simulatePrivateCondo(income, cpfOA, cash, monthlySavings, cfg, years) {
 // Helper: Create result for ineligible paths
 // ─────────────────────────────────────────────────
 
-function createIneligibleResult(pathName, errorMsg, years) {
+function createIneligibleResult(pathName, errorMsg, years, startAge = 35) {
     const pathId = pathName.includes('BTO') ? 'bto' :
                    pathName.includes('3-Room') ? '3room' :
                    pathName.includes('4-Room') ? '4room' : 'condo';
@@ -634,7 +634,7 @@ function createIneligibleResult(pathName, errorMsg, years) {
         isAffordable: false,
         isEligible: false,
         yearlyData: Array.from({ length: years + 1 }, (_, t) => ({
-            year: t, age: 35 + t,
+            year: t, age: startAge + t,
             propertyValue: 0, loanBalance: 0, equityPortfolio: 0,
             cpfOABalance: 0,
             netWorth: 0, rentalIncome: 0, mortgagePayment: 0, cumulativeRental: 0
@@ -657,14 +657,14 @@ function createIneligibleResult(pathName, errorMsg, years) {
 // Helper: Create result for unaffordable paths
 // ─────────────────────────────────────────────────
 
-function createUnaffordableResult(pathName, requiredAmount, availableFunds, years, pathId = 'bto') {
+function createUnaffordableResult(pathName, requiredAmount, availableFunds, years, pathId = 'bto', startAge = 35) {
     return {
         pathName,
         pathId,
         isAffordable: false,
         isEligible: true,
         yearlyData: Array.from({ length: years + 1 }, (_, t) => ({
-            year: t, age: 35 + t,
+            year: t, age: startAge + t,
             propertyValue: 0, loanBalance: 0, equityPortfolio: 0,
             cpfOABalance: 0,
             netWorth: 0, rentalIncome: 0, mortgagePayment: 0, cumulativeRental: 0

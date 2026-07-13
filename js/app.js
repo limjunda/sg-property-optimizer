@@ -80,7 +80,7 @@ function runCalculation() {
         currentResults = runSimulation(inputs, currentOverrides);
 
         // Update visualizations
-        updateChart(currentResults);
+        updateChart(currentResults, inputs.age);
         updateCards(currentResults);
 
         // Update path summary cards below chart

@@ -41,10 +41,6 @@ export function initModal() {
     });
 }
 
-/**
- * Open detailed breakdown modal and populate table.
- * @param {object} pathResult - Path result object from the simulator
- */
 export function showModal(pathResult) {
     const modal = document.getElementById('detail-modal');
     const titleEl = document.getElementById('modal-title');
@@ -56,9 +52,6 @@ export function showModal(pathResult) {
     if (titleEl) {
         titleEl.textContent = `${pathResult.pathName} — Detailed 10-Year Projection`;
     }
-    
-    // Project year-by-year CPF OA balance
-    const cpfBalances = calculateCpfSchedule(pathResult);
     
     // Generate Table HTML
     let tableHtml = `
@@ -78,15 +71,14 @@ export function showModal(pathResult) {
             <tbody>
     `;
     
-    pathResult.yearlyData.forEach((d, idx) => {
-        const cpfVal = cpfBalances[idx] || 0;
+    pathResult.yearlyData.forEach((d) => {
         tableHtml += `
             <tr>
                 <td>${d.year === 0 ? 'Start (Yr 0)' : `Year ${d.year}`}</td>
                 <td>Age ${d.age}</td>
                 <td>${formatCurrency(d.propertyValue)}</td>
                 <td>${d.loanBalance > 0 ? formatCurrency(d.loanBalance) : '—'}</td>
-                <td>${formatCurrency(cpfVal)}</td>
+                <td>${formatCurrency(d.cpfOABalance || 0)}</td>
                 <td>${formatCurrency(d.equityPortfolio)}</td>
                 <td>${d.cumulativeRental > 0 ? formatCurrency(d.cumulativeRental) : '—'}</td>
                 <td style="font-weight: 600; color: var(--text-primary);">${formatCurrency(d.netWorth)}</td>
@@ -104,52 +96,4 @@ export function showModal(pathResult) {
     // Show modal and lock page scroll
     modal.classList.add('is-active');
     document.body.style.overflow = 'hidden';
-}
-
-/**
- * Calculates the CPF Ordinary Account balance trajectory based on the selected path.
- * @param {object} pathResult 
- * @returns {number[]} Array of CPF OA balances corresponding to years 0 to 10
- */
-function calculateCpfSchedule(pathResult) {
-    const { cpfOA, income } = getInputValues();
-    const downpayment = pathResult.upfrontCosts.downpayment;
-    const pathId = pathResult.pathId;
-    
-    let cpfUsed = 0;
-    if (pathId === 'bto') {
-        cpfUsed = Math.min(cpfOA, downpayment);
-    } else if (pathId === '3room' || pathId === '4room') {
-        const isHDBLoan = income <= CONFIG.income.grantIncomeCeiling;
-        if (isHDBLoan) {
-            cpfUsed = Math.min(cpfOA, downpayment);
-        } else {
-            const price = pathId === '3room' ? CONFIG.prices.resale3Room : CONFIG.prices.resale4Room;
-            const effectivePrice = price - pathResult.totalGrants;
-            const cashDown = effectivePrice * CONFIG.loan.bankCashDownMin;
-            const cpfDown = downpayment - cashDown;
-            cpfUsed = Math.min(cpfOA, cpfDown);
-        }
-    } else if (pathId === 'condo') {
-        const price = CONFIG.prices.privateCondo;
-        const cashDown = price * CONFIG.loan.bankCashDownMin;
-        const cpfDown = downpayment - cashDown;
-        cpfUsed = Math.min(cpfOA, cpfDown);
-    }
-    
-    const cpfOABalances = [];
-    let currentCpf = cpfOA - cpfUsed;
-    cpfOABalances.push(Math.round(currentCpf));
-    
-    const wage = Math.min(income, CONFIG.cpf.wageCeiling);
-    const monthlyContribution = wage * (CONFIG.cpf.employeeRate + CONFIG.cpf.employerRate) * CONFIG.cpf.oaAllocationRate;
-    
-    for (let t = 1; t <= CONFIG.timeline.projectionYears; t++) {
-        for (let m = 0; m < 12; m++) {
-            currentCpf = currentCpf * (1 + CONFIG.cpf.oaInterestRate / 12) + monthlyContribution;
-        }
-        cpfOABalances.push(Math.round(currentCpf));
-    }
-    
-    return cpfOABalances;
 }

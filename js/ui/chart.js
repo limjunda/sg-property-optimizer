@@ -42,8 +42,9 @@ export function initChart(containerId) {
 /**
  * Update the chart with new simulation results.
  * @param {object[]} results - Array of 4 path result objects from the simulator
+ * @param {number} startAge - Starting age from user input
  */
-export function updateChart(results) {
+export function updateChart(results, startAge = 35) {
     if (!chart) return;
 
     const series = [];
@@ -90,7 +91,7 @@ export function updateChart(results) {
                 const crossover = findCrossover(s1, s2);
 
                 if (crossover !== null) {
-                    const crossoverAge = 35 + crossover;
+                    const crossoverAge = startAge + crossover;
                     // Interpolated value at crossover
                     const crossoverIdx = Math.floor(crossover);
                     const frac = crossover - crossoverIdx;
@@ -142,6 +143,11 @@ export function updateChart(results) {
     chart.updateOptions({
         series,
         annotations,
+        xaxis: {
+            min: startAge,
+            max: startAge + 10,
+            tickAmount: 10
+        },
         stroke: {
             curve: 'smooth',
             width: results.map(r => (r.isAffordable && r.isEligible) ? 4 : 2),
@@ -156,7 +162,7 @@ export function updateChart(results) {
 function buildChartOptions(initialSeries) {
     return {
         chart: {
-            type: 'line',
+            type: 'area',
             height: 400,
             fontFamily: "'Inter', sans-serif",
             background: 'transparent',
@@ -204,8 +210,8 @@ function buildChartOptions(initialSeries) {
             type: 'gradient',
             gradient: {
                 shadeIntensity: 1,
-                opacityFrom: 0.25,
-                opacityTo: 0.02,
+                opacityFrom: 0.15,
+                opacityTo: 0.0,
                 stops: [0, 100]
             }
         },
