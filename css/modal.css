@@ -1,0 +1,118 @@
+/* ========================================================================
+   MODAL COMPONENT — premium glassmorphic detailed strategy breakdown
+   ======================================================================== */
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 12, 18, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-backdrop.is-active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-container {
+    background: hsla(220, 25%, 15%, 0.75);
+    border: 1px solid hsla(220, 30%, 40%, 0.2);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    width: 95%;
+    max-width: 900px;
+    max-height: 85vh;
+    padding: var(--space-6);
+    overflow-y: auto;
+    transform: scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-backdrop.is-active .modal-container {
+    transform: scale(1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-5);
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: var(--space-3);
+}
+
+.modal-header h2 {
+    margin: 0;
+}
+
+.modal-body {
+    overflow-x: auto;
+    margin-top: var(--space-4);
+}
+
+.modal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    text-align: right;
+    color: var(--text-primary);
+}
+
+/* Align text columns to the left, numeric to the right */
+.modal-table th, 
+.modal-table td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.modal-table th:first-child,
+.modal-table td:first-child,
+.modal-table th:nth-child(2),
+.modal-table td:nth-child(2) {
+    text-align: center;
+}
+
+.modal-table th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.modal-table tbody tr {
+    transition: background-color var(--transition-fast);
+}
+
+.modal-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* Custom scrollbar for modal container */
+.modal-container::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.modal-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+.modal-container::-webkit-scrollbar-thumb {
+    background: hsla(220, 20%, 35%, 0.5);
+    border-radius: 3px;
+}
+.modal-container::-webkit-scrollbar-thumb:hover {
+    background: hsla(220, 20%, 45%, 0.6);
+}

@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SG Property Optimizer — Singapore Single Property Financial Planner</title>
+    <meta name="description" content="Compare 4 property purchase strategies for single Singaporeans turning 35. Simulate 10-year net worth trajectories across BTO, Resale HDB, and Private Condo paths with real-time financial modeling.">
+    <meta name="keywords" content="Singapore, HDB, BTO, property, financial planner, CPF, single, SSC scheme, resale, condo, investment">
+    <meta name="author" content="SG Property Optimizer">
+    <meta name="theme-color" content="#0d1117">
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/chart.css">
+    <link rel="stylesheet" href="css/modal.css">
+
+    <!-- Additional page-level styles -->
+    <style>
+        /* Path Summary Cards */
+        .path-summaries-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--space-4);
+            margin-top: var(--space-4);
+        }
+
+        @media (max-width: 1100px) {
+            .path-summaries-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 640px) {
+            .path-summaries-grid { grid-template-columns: 1fr; }
+        }
+
+        .path-summary-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            border-top: 3px solid var(--border-subtle);
+            transition: var(--transition-base);
+            cursor: pointer;
+        }
+        .path-summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        .path-summary-card.is-disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .path-summary-card__header {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-3);
+            margin-bottom: var(--space-3);
+        }
+        .path-summary-card__icon {
+            font-size: 1.6rem;
+            flex-shrink: 0;
+        }
+        .path-summary-card__title {
+            font-family: var(--font-heading);
+            font-size: var(--text-sm);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0 0 2px;
+        }
+        .path-status {
+            font-size: var(--text-xs);
+            font-weight: 500;
+        }
+        .path-status--ok { color: var(--success); }
+        .path-status--warn { color: var(--danger); font-size: 0.7rem; }
+
+        .path-summary-card__grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-2);
+        }
+        .path-summary-card__stat {
+            padding: var(--space-1) 0;
+        }
+        .stat-label {
+            display: block;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1px;
+        }
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .stat-value--highlight { color: var(--success); }
+        .stat-value--large {
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .path-summary-card__disabled-msg {
+            font-size: var(--text-xs);
+            color: var(--danger);
+            line-height: 1.5;
+        }
+        .path-summary-card__disabled-msg p {
+            margin: 0 0 var(--space-1);
+        }
+
+        /* Liquid ratio bar */
+        .liquid-bar {
+            display: flex;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            background: hsla(220, 20%, 20%, 0.5);
+            margin-top: var(--space-2);
+            margin-bottom: var(--space-1);
+        }
+        .liquid-bar__stocks {
+            background: linear-gradient(90deg, hsl(210, 90%, 55%), hsl(190, 80%, 50%));
+            transition: width 0.8s ease;
+            border-radius: 4px 0 0 4px;
+        }
+        .liquid-bar__property {
+            background: linear-gradient(90deg, hsl(38, 90%, 55%), hsl(25, 85%, 50%));
+            transition: width 0.8s ease;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .liquid-bar-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        /* Intro text */
+        .app-intro {
+            font-size: var(--text-sm);
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: var(--space-4);
+            max-width: 360px;
+        }
+        .app-intro strong {
+            color: var(--text-secondary);
+        }
+
+        /* Section divider */
+        .section-divider {
+            border: none;
+            border-top: 1px solid var(--border-subtle);
+            margin: var(--space-4) 0;
+        }
+
+        /* Drawer additional styles */
+        .drawer-reset-btn {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-top: var(--space-3);
+            background: transparent;
+            border: 1px dashed var(--border-subtle);
+            border-radius: var(--radius-md);
+            color: var(--text-muted);
+            font-size: var(--text-xs);
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+        .drawer-reset-btn:hover {
+            border-color: var(--info);
+            color: var(--info);
+        }
+
+        .drawer-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .drawer-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 500;
+        }
+        .drawer-input-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .drawer-input-wrap .input-prefix {
+            position: absolute;
+            left: 10px;
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+        .drawer-input-wrap .input-suffix {
+            position: absolute;
+            right: 10px;
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+        .drawer-input {
+            width: 100%;
+            background: hsla(220, 25%, 10%, 0.8);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            padding: 7px 10px;
+            font-size: var(--text-xs);
+            font-family: var(--font-mono);
+            transition: border-color var(--transition-fast);
+        }
+        .drawer-input:focus {
+            outline: none;
+            border-color: var(--info);
+        }
+        .drawer-input-wrap:has(.input-prefix) .drawer-input {
+            padding-left: 30px;
+        }
+        .drawer-input-wrap:has(.input-suffix) .drawer-input {
+            padding-right: 50px;
+        }
+
+        /* Warning badge enhancements */
+        .warning-badge {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-2);
+            max-width: 240px;
+        }
+        .warning-badge__icon {
+            flex-shrink: 0;
+            font-size: 0.9rem;
+        }
+        .warning-badge__text {
+            font-size: 0.68rem;
+            line-height: 1.4;
+        }
+        .warning-badge__text strong {
+            display: block;
+            margin-bottom: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ═══════════════ HEADER ═══════════════ -->
+    <header class="app-header" id="app-header">
+        <div class="app-header__brand">
+            <span class="app-header__logo">🇸🇬</span>
+            <div>
+                <h1 class="app-header__title">SG Property Optimizer</h1>
+                <span class="app-header__subtitle">Singles Financial Planner · Age 35 Milestone</span>
+            </div>
+        </div>
+        <div class="app-header__badge">
+            <span class="app-header__badge-text">2026 Framework</span>
+        </div>
+    </header>
+
+    <!-- ═══════════════ MAIN LAYOUT ═══════════════ -->
+    <main class="app-container">
+        <div class="app-layout">
+
+            <!-- ──── LEFT: INPUT PANEL ──── -->
+            <aside class="input-panel" id="input-panel">
+                <div class="glass-card">
+                    <h2 class="section-title">Your Profile</h2>
+                    <p class="app-intro">
+                        Enter your <strong>4 core parameters</strong> to instantly project your
+                        10-year net worth across all eligible property paths.
+                    </p>
+
+                    <!-- Age -->
+                    <div class="input-group">
+                        <label class="input-label" for="input-age">Age</label>
+                        <div class="input-row">
+                            <input
+                                type="number"
+                                id="input-age"
+                                class="input-field input-field--compact"
+                                min="35"
+                                max="65"
+                                value="35"
+                                step="1"
+                            />
+                            <span class="input-hint">SSC Scheme: Must be ≥ 35</span>
+                        </div>
+                        <div class="input-error" id="error-age"></div>
+                    </div>
+
+                    <!-- Gross Monthly Income -->
+                    <div class="input-group">
+                        <label class="input-label" for="input-income">Gross Monthly Income</label>
+                        <div class="input-row">
+                            <input
+                                type="range"
+                                id="slider-income"
+                                class="input-slider"
+                                min="3000"
+                                max="15000"
+                                step="500"
+                                value="5500"
+                            />
+                            <div class="input-field-wrap">
+                                <span class="input-prefix">S$</span>
+                                <input
+                                    type="number"
+                                    id="input-income"
+                                    class="input-field"
+                                    min="3000"
+                                    max="30000"
+                                    step="500"
+                                    value="5500"
+                                />
+                            </div>
+                        </div>
+                        <div class="input-error" id="error-income"></div>
+                    </div>
+
+                    <!-- CPF OA Balance -->
+                    <div class="input-group">
+                        <label class="input-label" for="input-cpf">CPF Ordinary Account (OA)</label>
+                        <div class="input-row">
+                            <input
+                                type="range"
+                                id="slider-cpf"
+                                class="input-slider"
+                                min="20000"
+                                max="300000"
+                                step="5000"
+                                value="80000"
+                            />
+                            <div class="input-field-wrap">
+                                <span class="input-prefix">S$</span>
+                                <input
+                                    type="number"
+                                    id="input-cpf"
+                                    class="input-field"
+                                    min="0"
+                                    max="500000"
+                                    step="5000"
+                                    value="80000"
+                                />
+                            </div>
+                        </div>
+                        <div class="input-error" id="error-cpfOA"></div>
+                    </div>
+
+                    <!-- Cash Liquidity -->
+                    <div class="input-group">
+                        <label class="input-label" for="input-cash">Cash Liquidity</label>
+                        <div class="input-row">
+                            <input
+                                type="range"
+                                id="slider-cash"
+                                class="input-slider"
+                                min="20000"
+                                max="1000000"
+                                step="10000"
+                                value="120000"
+                            />
+                            <div class="input-field-wrap">
+                                <span class="input-prefix">S$</span>
+                                <input
+                                    type="number"
+                                    id="input-cash"
+                                    class="input-field"
+                                    min="0"
+                                    max="1000000"
+                                    step="10000"
+                                    value="120000"
+                                />
+                            </div>
+                        </div>
+                        <div class="input-error" id="error-cashLiquidity"></div>
+                    </div>
+
+                    <hr class="section-divider">
+
+                    <!-- Calculate Button -->
+                    <button class="btn-calculate" id="btn-calculate" type="button">
+                        ⚡ Optimize My Path
+                    </button>
+
+                    <hr class="section-divider">
+
+                    <!-- Advanced Settings Drawer -->
+                    <button class="drawer-toggle" id="drawer-toggle" type="button">
+                        <span>⚙️ Advanced Settings</span>
+                        <span class="drawer-chevron">▼</span>
+                    </button>
+                    <div class="drawer-content" id="drawer-content">
+                        <div class="drawer-grid" id="drawer-grid">
+                            <!-- Populated by drawer.js -->
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- ──── RIGHT: OUTPUT PANEL ──── -->
+            <section class="output-panel" id="output-panel">
+
+                <!-- Chart -->
+                <div class="chart-container glass-card">
+                    <h2 class="chart-title">Net Worth Projection: Age 35 → 45</h2>
+                    <p class="chart-subtitle">10-year trajectory across all 4 property acquisition strategies</p>
+                    <div class="chart-warnings" id="chart-warnings"></div>
+                    <div id="net-worth-chart"></div>
+                </div>
+
+                <!-- Metric Cards -->
+                <div class="metrics-grid">
+                    <!-- Card 1: Winner -->
+                    <div class="metric-card metric-card--winner glass-card">
+                        <div class="metric-card__icon" style="background: hsla(38, 95%, 60%, 0.15); color: hsl(38, 95%, 60%);">🏆</div>
+                        <div class="metric-card__label">Winner at Age 45</div>
+                        <div class="metric-card__value" id="card-winner-value">—</div>
+                        <div class="metric-card__name" id="card-winner-name" style="font-size: 0.8rem; font-weight: 600; margin-top: 2px;"></div>
+                        <div class="metric-card__sub" id="card-winner-sub"></div>
+                    </div>
+
+                    <!-- Card 2: Liquid Equity Ratio -->
+                    <div class="metric-card metric-card--liquid glass-card">
+                        <div class="metric-card__icon" style="background: hsla(210, 90%, 60%, 0.15); color: hsl(210, 90%, 60%);">💧</div>
+                        <div class="metric-card__label">Liquid Equity Ratio</div>
+                        <div class="metric-card__value" id="card-liquid-value">—</div>
+                        <div class="liquid-bar" id="card-liquid-bar">
+                            <div class="liquid-bar__stocks" style="width: 50%;"></div>
+                            <div class="liquid-bar__property" style="width: 50%;"></div>
+                        </div>
+                        <div class="liquid-bar-labels">
+                            <span>Stocks</span>
+                            <span>Property</span>
+                        </div>
+                        <div class="metric-card__sub" id="card-liquid-sub"></div>
+                    </div>
+
+                    <!-- Card 3: Tenant Subsidy -->
+                    <div class="metric-card metric-card--tenant glass-card">
+                        <div class="metric-card__icon" style="background: hsla(145, 70%, 50%, 0.15); color: hsl(145, 70%, 50%);">🏠</div>
+                        <div class="metric-card__label">Tenant Subsidy Total</div>
+                        <div class="metric-card__value" id="card-tenant-value">—</div>
+                        <div class="metric-card__name" id="card-tenant-name" style="font-size: 0.8rem; font-weight: 600; margin-top: 2px;"></div>
+                        <div class="metric-card__sub" id="card-tenant-sub"></div>
+                    </div>
+                </div>
+
+                <!-- Path Breakdown Cards -->
+                <div>
+                    <h2 class="section-title" style="padding: 0 var(--space-2);">Strategy Breakdown</h2>
+                    <div class="path-summaries-grid" id="path-summaries">
+                        <!-- Populated by app.js -->
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- ═══════════════ DETAILED BREAKDOWN MODAL ═══════════════ -->
+    <div class="modal-backdrop" id="detail-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 class="section-title" id="modal-title">Strategy Details</h2>
+                <button class="modal-close" id="modal-close-btn" type="button">✕</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Table generated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer style="text-align: center; padding: var(--space-6) var(--space-4); color: var(--text-muted); font-size: var(--text-xs);">
+        <p>SG Property Optimizer · 2026 Framework · For educational simulation purposes only.</p>
+        <p style="margin-top: var(--space-1);">Based on HDB SSC Scheme, CPF Housing Grant, MSR/TDSR rules as of 2026. Not financial advice.</p>
+    </footer>
+
+    <!-- ═══════════════ SCRIPTS ═══════════════ -->
+    <!-- ApexCharts via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <!-- App Modules -->
+    <script type="module" src="js/app.js"></script>
+
+</body>
+</html>
