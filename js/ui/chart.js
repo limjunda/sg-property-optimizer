@@ -88,15 +88,22 @@ export function updateChart(results, startAge = 35) {
             for (let j = i + 1; j < affordablePaths.length; j++) {
                 const s1 = affordablePaths[i].yearlyData.map(d => d.netWorth);
                 const s2 = affordablePaths[j].yearlyData.map(d => d.netWorth);
-                const crossover = findCrossover(s1, s2);
+                
+                let crossover = findCrossover(s1, s2);
+                let isSwapped = false;
+                if (crossover === null) {
+                    crossover = findCrossover(s2, s1);
+                    isSwapped = true;
+                }
 
                 if (crossover !== null) {
                     const crossoverAge = startAge + crossover;
                     // Interpolated value at crossover
                     const crossoverIdx = Math.floor(crossover);
                     const frac = crossover - crossoverIdx;
-                    const nextVal = s1[crossoverIdx + 1] !== undefined ? s1[crossoverIdx + 1] : s1[crossoverIdx];
-                    const crossoverValue = s1[crossoverIdx] + frac * (nextVal - s1[crossoverIdx]);
+                    const seriesToUse = isSwapped ? s2 : s1;
+                    const nextVal = seriesToUse[crossoverIdx + 1] !== undefined ? seriesToUse[crossoverIdx + 1] : seriesToUse[crossoverIdx];
+                    const crossoverValue = seriesToUse[crossoverIdx] + frac * (nextVal - seriesToUse[crossoverIdx]);
 
                     annotations.xaxis.push({
                         x: crossoverAge,

@@ -176,10 +176,16 @@ function simulateBTO(age, income, cpfOA, cash, monthlySavings, cfg, years) {
                 }
 
                 const monthlyEquityContrib = monthlySavings - cashMortgageShortfall - otherMonthlyCosts;
-                equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
+                if (equityPortfolio >= 0) {
+                    equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
+                } else {
+                    const monthlyBorrowingRate = cfg.rates.bankLoanRate / 12;
+                    equityPortfolio = equityPortfolio * (1 + monthlyBorrowingRate) + monthlyEquityContrib;
+                }
             }
         }
 
+        loanBalance = Math.max(0, loanBalance);
         const netWorth = propertyValue + equityPortfolio + cpfOABalance - loanBalance;
 
         // Check for bankruptcy (cash reserves depleted)
@@ -345,10 +351,16 @@ function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, year
                 const monthlyEquityContrib = monthlySavings + rentalIncome - cashMortgageShortfall - otherMonthlyCosts;
 
                 // Grow equity portfolio
-                equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
+                if (equityPortfolio >= 0) {
+                    equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
+                } else {
+                    const monthlyBorrowingRate = cfg.rates.bankLoanRate / 12;
+                    equityPortfolio = equityPortfolio * (1 + monthlyBorrowingRate) + monthlyEquityContrib;
+                }
             }
         }
 
+        loanBalance = Math.max(0, loanBalance);
         const netWorth = propertyValue + equityPortfolio + cpfOABalance - loanBalance;
 
         // Check for bankruptcy (cash reserves depleted)
@@ -513,10 +525,16 @@ function simulateResale4Room(age, income, cpfOA, cash, monthlySavings, cfg, year
                 const monthlyEquityContrib = monthlySavings + rentalIncome - cashMortgageShortfall - otherMonthlyCosts;
 
                 // Grow equity portfolio
-                equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
+                if (equityPortfolio >= 0) {
+                    equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
+                } else {
+                    const monthlyBorrowingRate = cfg.rates.bankLoanRate / 12;
+                    equityPortfolio = equityPortfolio * (1 + monthlyBorrowingRate) + monthlyEquityContrib;
+                }
             }
         }
 
+        loanBalance = Math.max(0, loanBalance);
         const netWorth = propertyValue + equityPortfolio + cpfOABalance - loanBalance;
 
         // Check for bankruptcy (cash reserves depleted)
@@ -648,10 +666,16 @@ function simulatePrivateCondo(age, income, cpfOA, cash, monthlySavings, cfg, yea
                 const monthlyEquityContrib = monthlySavings - cashMortgageShortfall - otherMonthlyCosts;
 
                 // Grow equity portfolio
-                equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
+                if (equityPortfolio >= 0) {
+                    equityPortfolio = equityPortfolio * (1 + monthlyReturn) + monthlyEquityContrib;
+                } else {
+                    const monthlyBorrowingRate = cfg.rates.bankLoanRate / 12;
+                    equityPortfolio = equityPortfolio * (1 + monthlyBorrowingRate) + monthlyEquityContrib;
+                }
             }
         }
 
+        loanBalance = Math.max(0, loanBalance);
         const netWorth = propertyValue + equityPortfolio + cpfOABalance - loanBalance;
 
         // Check for bankruptcy (cash reserves depleted)
