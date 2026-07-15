@@ -10,3 +10,6 @@ jspm_packages/
 # OS metadata files
 .DS_Store
 Thumbs.db
+
+# Scratch / Dev scripts
+scratch/

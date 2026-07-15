@@ -61,7 +61,7 @@ export function updateChart(results, startAge = 35) {
             name: result.pathName,
             data: result.yearlyData.map(d => ({
                 x: d.age,
-                y: isActive ? d.netWorth : null
+                y: result.isEligible ? d.netWorth : null
             })),
             color: isActive ? colors.main : 'hsla(0, 0%, 50%, 0.2)',
         });
@@ -95,7 +95,8 @@ export function updateChart(results, startAge = 35) {
                     // Interpolated value at crossover
                     const crossoverIdx = Math.floor(crossover);
                     const frac = crossover - crossoverIdx;
-                    const crossoverValue = s1[crossoverIdx] + frac * (s1[crossoverIdx + 1] - s1[crossoverIdx]);
+                    const nextVal = s1[crossoverIdx + 1] !== undefined ? s1[crossoverIdx + 1] : s1[crossoverIdx];
+                    const crossoverValue = s1[crossoverIdx] + frac * (nextVal - s1[crossoverIdx]);
 
                     annotations.xaxis.push({
                         x: crossoverAge,
@@ -133,6 +134,11 @@ export function updateChart(results, startAge = 35) {
     // Update chart
     chart.updateOptions({
         series,
+        colors: results.map(r => {
+            const colors = PATH_COLORS[r.pathId];
+            const isActive = r.isAffordable && r.isEligible;
+            return isActive ? colors.main : 'hsla(0, 0%, 50%, 0.2)';
+        }),
         annotations,
         xaxis: {
             min: startAge,

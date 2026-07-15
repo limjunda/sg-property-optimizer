@@ -101,8 +101,10 @@ function simulateBTO(age, income, cpfOA, cash, monthlySavings, cfg, years) {
         cashRequired = (dpTotal - totalGrants - cpfUsed) + bsd; // Renovation is paid at Year 4
     }
 
+    let isAffordable = true;
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, cashRequired, cash, years, 'bto', age);
+        isAffordable = false;
+        warnings.push(`Insufficient upfront capital. Required: S$${Math.round(cashRequired).toLocaleString()}, Available: S$${Math.round(cash).toLocaleString()}`);
     }
 
     const monthlyMortgage = calculateMonthlyRepayment(loanAmount, cfg.rates.hdbLoanRate, cfg.loan.defaultTenureYears);
@@ -182,7 +184,11 @@ function simulateBTO(age, income, cpfOA, cash, monthlySavings, cfg, years) {
 
         // Check for bankruptcy (cash reserves depleted)
         if (equityPortfolio < 0) {
-            return createUnaffordableResult(pathName, cashRequired, cash, years, 'bto', age, 'Cash reserves depleted during projection period due to monthly cash flow deficit.');
+            isAffordable = false;
+            const msg = 'Cash reserves depleted during projection period due to monthly cash flow deficit.';
+            if (!warnings.includes(msg)) {
+                warnings.push(msg);
+            }
         }
 
         yearlyData.push({
@@ -203,7 +209,7 @@ function simulateBTO(age, income, cpfOA, cash, monthlySavings, cfg, years) {
     return {
         pathName,
         pathId: 'bto',
-        isAffordable: true,
+        isAffordable,
         isEligible: true,
         yearlyData,
         warnings,
@@ -273,8 +279,10 @@ function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, year
         }
     }
 
+    let isAffordable = true;
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, cashRequired, cash, years, '3room', age);
+        isAffordable = false;
+        warnings.push(`Insufficient upfront capital. Required: S$${Math.round(cashRequired).toLocaleString()}, Available: S$${Math.round(cash).toLocaleString()}`);
     }
 
     const monthlyMortgage = calculateMonthlyRepayment(loanAmount, loanRate, cfg.loan.defaultTenureYears);
@@ -345,7 +353,11 @@ function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, year
 
         // Check for bankruptcy (cash reserves depleted)
         if (equityPortfolio < 0) {
-            return createUnaffordableResult(pathName, cashRequired, cash, years, '3room', age, 'Cash reserves depleted during projection period due to monthly cash flow deficit.');
+            isAffordable = false;
+            const msg = 'Cash reserves depleted during projection period due to monthly cash flow deficit.';
+            if (!warnings.includes(msg)) {
+                warnings.push(msg);
+            }
         }
 
         yearlyData.push({
@@ -366,7 +378,7 @@ function simulateResale3Room(age, income, cpfOA, cash, monthlySavings, cfg, year
     return {
         pathName,
         pathId: '3room',
-        isAffordable: true,
+        isAffordable,
         isEligible: true,
         yearlyData,
         warnings,
@@ -436,8 +448,10 @@ function simulateResale4Room(age, income, cpfOA, cash, monthlySavings, cfg, year
         }
     }
 
+    let isAffordable = true;
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, cashRequired, cash, years, '4room', age);
+        isAffordable = false;
+        warnings.push(`Insufficient upfront capital. Required: S$${Math.round(cashRequired).toLocaleString()}, Available: S$${Math.round(cash).toLocaleString()}`);
     }
 
     const monthlyMortgage = calculateMonthlyRepayment(loanAmount, loanRate, cfg.loan.defaultTenureYears);
@@ -507,7 +521,11 @@ function simulateResale4Room(age, income, cpfOA, cash, monthlySavings, cfg, year
 
         // Check for bankruptcy (cash reserves depleted)
         if (equityPortfolio < 0) {
-            return createUnaffordableResult(pathName, cashRequired, cash, years, '4room', age, 'Cash reserves depleted during projection period due to monthly cash flow deficit.');
+            isAffordable = false;
+            const msg = 'Cash reserves depleted during projection period due to monthly cash flow deficit.';
+            if (!warnings.includes(msg)) {
+                warnings.push(msg);
+            }
         }
 
         yearlyData.push({
@@ -528,7 +546,7 @@ function simulateResale4Room(age, income, cpfOA, cash, monthlySavings, cfg, year
     return {
         pathName,
         pathId: '4room',
-        isAffordable: true,
+        isAffordable,
         isEligible: true,
         yearlyData,
         warnings,
@@ -572,8 +590,10 @@ function simulatePrivateCondo(age, income, cpfOA, cash, monthlySavings, cfg, yea
     const cpfUsed = Math.min(cpfOA, cpfDown);
     const cashRequired = minCashDown + (cpfDown - cpfUsed) + bsd + renoFee;
 
+    let isAffordable = true;
     if (cashRequired > cash) {
-        return createUnaffordableResult(pathName, cashRequired, cash, years, 'condo', age);
+        isAffordable = false;
+        warnings.push(`Insufficient upfront capital. Required: S$${Math.round(cashRequired).toLocaleString()}, Available: S$${Math.round(cash).toLocaleString()}`);
     }
 
     const loanRate = cfg.rates.bankLoanRate;
@@ -636,7 +656,11 @@ function simulatePrivateCondo(age, income, cpfOA, cash, monthlySavings, cfg, yea
 
         // Check for bankruptcy (cash reserves depleted)
         if (equityPortfolio < 0) {
-            return createUnaffordableResult(pathName, cashRequired, cash, years, 'condo', age, 'Cash reserves depleted during projection period due to monthly cash flow deficit.');
+            isAffordable = false;
+            const msg = 'Cash reserves depleted during projection period due to monthly cash flow deficit.';
+            if (!warnings.includes(msg)) {
+                warnings.push(msg);
+            }
         }
 
         yearlyData.push({
@@ -657,7 +681,7 @@ function simulatePrivateCondo(age, income, cpfOA, cash, monthlySavings, cfg, yea
     return {
         pathName,
         pathId: 'condo',
-        isAffordable: true,
+        isAffordable,
         isEligible: true,
         yearlyData,
         warnings,
